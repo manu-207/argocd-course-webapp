@@ -1,68 +1,77 @@
-name: Build and Push Docker Image to ECR
+name: Deploy to EKS using Argo CD
 
 on:
   push:
     branches:
       - main
 
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 525679290213.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: argocd-course-webapp-config
+  CLUSTER_NAME: opentelemetry-eks
+  ARGOCD_NAMESPACE: argocd
+
 jobs:
-  build-and-push:
+  build_and_push:
+    name: Build and Push Docker image
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: $AWS_REGION
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Build Docker image
+        run: |
+          docker build -t $ECR_REPOSITORY:latest ./WebApplication1
+          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-    - name: Install AWS CLI
-      run: |
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-        unzip awscliv2.zip
-        sudo ./aws/install --update
+      - name: Push Docker image to Amazon ECR
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-    - name: Build Docker image
-      run: |
-        docker build -t ${{ secrets.ECR_REPOSITORY }}:latest -f WebApplication1/Dockerfile .
+  deploy:
+    name: Deploy to EKS using Argo CD
+    needs: build_and_push
+    runs-on: ubuntu-latest
 
-    - name: Tag Docker image
-      run: |
-        IMAGE_TAG=$(date +%Y%m%d%H%M%S)
-        docker tag ${{ secrets.ECR_REPOSITORY }}:latest ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
-        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Push Docker image to ECR
-      run: |
-        docker push ${{ secrets.ECR_REPOSITORY }}:latest
-        docker push ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: $AWS_REGION
 
-    - name: Pull Docker image from ECR
-      run: |
-        docker pull ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+      - name: Update Helm values.yaml with new image
+        run: |
+          sed -i 's|repository:.*|repository: '"$ECR_REGISTRY/$ECR_REPOSITORY"'|' ./helm/webapp/values.yaml
+          sed -i 's|tag:.*|tag: latest|' ./helm/webapp/values.yaml
 
-    - name: Update Helm values.yaml with new image tag
-      run: |
-        sed -i "s|image: .*|image: ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG|g" helm/webapp/values.yaml
-        cat helm/webapp/values.yaml
+      - name: Install Argo CD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin
 
-    - name: Check for untracked files
-      run: |
-        git status
+      - name: Log in to Argo CD
+        run: |
+          argocd login $ARGOCD_SERVER --username ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
 
-    - name: Ignore untracked files
-      run: |
-        git add helm/webapp/values.yaml
-        git commit -m "Update image tag to $IMAGE_TAG"
-        git push
+      - name: Sync Argo CD application
+        run: |
+          argocd app sync helm-app --namespace $ARGOCD_NAMESPACE
