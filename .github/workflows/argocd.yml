@@ -57,11 +57,12 @@ jobs:
         sed -i "s|image: .*|image: ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG|g" helm/webapp/values.yaml
         cat helm/webapp/values.yaml
 
-    - name: Commit and push updated values.yaml
+    - name: Check for untracked files
       run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git status
+
+    - name: Ignore untracked files
+      run: |
         git add helm/webapp/values.yaml
         git commit -m "Update image tag to $IMAGE_TAG"
         git push
-
