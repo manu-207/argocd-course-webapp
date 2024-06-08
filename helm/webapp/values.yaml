@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: argocd-course-webapp-config
+  repository: 525679290213.dkr.ecr.us-east-1.amazonaws.com/argocd-course-webapp-config
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
