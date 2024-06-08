@@ -39,6 +39,9 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
       -
+        name: Check ECR Login
+        run: aws ecr get-login-password --region us-east-1
+      -
         name: Build and push
         uses: docker/build-push-action@v2
         with:
@@ -62,10 +65,3 @@ jobs:
           sed -i "s,tag:.*,tag:\ ${{ github.sha }}," helm/webapp/values.yaml
           git add . && git commit -m "update image tag"
           git push
-
-
-
-
-
-
-
