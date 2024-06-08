@@ -1,0 +1,1 @@
+demo project of helm with argocd application
