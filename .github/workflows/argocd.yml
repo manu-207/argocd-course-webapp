@@ -81,4 +81,4 @@ jobs:
 
       - name: Sync Argo CD application
         run: |
-          argocd app sync helm-app --namespace $ARGOCD_NAMESPACE
+          argocd app sync my-app --namespace $ARGOCD_NAMESPACE
