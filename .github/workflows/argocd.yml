@@ -39,13 +39,19 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Extract git commit SHA
+        id: vars
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY:latest -f ./WebApplication1/Dockerfile .
-          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker build -t $ECR_REPOSITORY:${{ env.sha }} -f ./WebApplication1/Dockerfile .
+          docker tag $ECR_REPOSITORY:${{ env.sha }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.sha }}
 
       - name: Push Docker image to Amazon ECR
         run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.sha }}
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.sha }} $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
   deploy:
@@ -64,10 +70,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Pull latest Docker image tag
+        run: |
+          LATEST_TAG=$(aws ecr describe-images --repository-name $ECR_REPOSITORY --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+          echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_ENV
+
       - name: Update Helm values.yaml with new image
         run: |
           sed -i 's|repository:.*|repository: '"$ECR_REGISTRY/$ECR_REPOSITORY"'|' ./helm/webapp/values.yaml
-          sed -i 's|tag:.*|tag: latest|' ./helm/webapp/values.yaml
+          sed -i 's|tag:.*|tag: '"$LATEST_TAG"'|' ./helm/webapp/values.yaml
 
       - name: Install Argo CD CLI
         run: |
@@ -81,4 +92,4 @@ jobs:
 
       - name: Sync Argo CD application
         run: |
-          argocd app sync my-app 
+          argocd app sync my-app
