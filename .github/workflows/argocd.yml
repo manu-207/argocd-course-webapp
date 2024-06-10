@@ -39,20 +39,40 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Extract git commit SHA
-        id: vars
-        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - name: Get current version
+        id: get_version
+        run: |
+          if [ -f version.txt ]; then
+            VERSION=$(cat version.txt)
+            echo "Current version: $VERSION"
+          else
+            VERSION="dev0"
+          fi
+          VERSION_NUMBER=$(echo $VERSION | sed 's/dev//')
+          NEW_VERSION_NUMBER=$((VERSION_NUMBER + 1))
+          NEW_VERSION="dev$NEW_VERSION_NUMBER"
+          echo $NEW_VERSION > version.txt
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_ENV
 
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY:${{ env.sha }} -f ./WebApplication1/Dockerfile .
-          docker tag $ECR_REPOSITORY:${{ env.sha }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.sha }}
+          docker build -t $ECR_REPOSITORY:${{ env.version }} -f ./WebApplication1/Dockerfile .
+          docker tag $ECR_REPOSITORY:${{ env.version }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.version }}
 
       - name: Push Docker image to Amazon ECR
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.sha }}
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.sha }} $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.version }}
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.version }} $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Commit and push version file
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add version.txt
+          git commit -m "Increment version to ${{ env.version }}"
+          git push
 
   deploy:
     name: Deploy to EKS using Argo CD
