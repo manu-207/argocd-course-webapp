@@ -6,10 +6,10 @@ on:
       - main
 
 env:
-  AWS_REGION: us-east-1
-  ECR_REGISTRY: 525679290213.dkr.ecr.us-east-1.amazonaws.com
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: 238393102293.dkr.ecr.ap-south-1.amazonaws.com/argocd-course-webapp-config
   ECR_REPOSITORY: argocd-course-webapp-config
-  CLUSTER_NAME: opentelemetry-eks
+  CLUSTER_NAME: cluster1
   ARGOCD_NAMESPACE: argocd
 
 jobs:
