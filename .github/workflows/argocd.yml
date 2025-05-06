@@ -36,45 +36,15 @@ jobs:
           aws-region: ap-south-1
 
       - name: Log in to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Get current version
-        id: get_version
-        run: |
-          if [ -f version.txt ]; then
-            VERSION=$(cat version.txt)
-            echo "Current version: $VERSION"
-          else
-            VERSION="dev0"
-          fi
-          VERSION_NUMBER=$(echo $VERSION | sed 's/dev//')
-          NEW_VERSION_NUMBER=$((VERSION_NUMBER + 1))
-          NEW_VERSION="dev$NEW_VERSION_NUMBER"
-          echo $NEW_VERSION > version.txt
-          echo "New version: $NEW_VERSION"
-          echo "version=$NEW_VERSION" >> $GITHUB_ENV
 
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY:${{ env.version }} -f ./WebApplication1/Dockerfile .
-          docker tag $ECR_REPOSITORY:${{ env.version }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.version }}
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest -f ./WebApplication1/Dockerfile .
 
       - name: Push Docker image to Amazon ECR
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.version }}
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.version }} $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-      - name: Commit and push version file
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          git config --global user.email "lovelymanu207@gmail.com"
-          git config --global user.name "manu-207"
-          git add version.txt
-          git commit -m "Increment version to ${{ env.version }}"
-          git push https://${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
 
   deploy:
     name: Deploy to EKS using Argo CD
@@ -92,15 +62,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Pull latest Docker image tag
-        run: |
-          LATEST_TAG=$(aws ecr describe-images --repository-name $ECR_REPOSITORY --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
-          echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_ENV
-
-      - name: Update Helm values.yaml with new image
+      - name: Update Helm values.yaml with latest tag
         run: |
           sed -i 's|repository:.*|repository: '"$ECR_REGISTRY/$ECR_REPOSITORY"'|' ./helm/webapp/values.yaml
-          sed -i 's|tag:.*|tag: '"$LATEST_TAG"'|' ./helm/webapp/values.yaml
+          sed -i 's|tag:.*|tag: latest|' ./helm/webapp/values.yaml
 
       - name: Install Argo CD CLI
         run: |
