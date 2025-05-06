@@ -67,12 +67,14 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Commit and push version file
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config --global user.email "lovelymanu207@gmail.com"
+          git config --global user.name "manu-207"
           git add version.txt
           git commit -m "Increment version to ${{ env.version }}"
-          git push
+          git push https://${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
 
   deploy:
     name: Deploy to EKS using Argo CD
@@ -88,7 +90,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ap-south-1
 
       - name: Pull latest Docker image tag
         run: |
