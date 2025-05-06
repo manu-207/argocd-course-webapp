@@ -7,7 +7,7 @@ on:
 
 env:
   AWS_REGION: ap-south-1
-  ECR_REGISTRY: 238393102293.dkr.ecr.ap-south-1.amazonaws.com/argocd-course-webapp-config
+  ECR_REGISTRY: 238393102293.dkr.ecr.ap-south-1.amazonaws.com
   ECR_REPOSITORY: argocd-course-webapp-config
   CLUSTER_NAME: cluster1
   ARGOCD_NAMESPACE: argocd
