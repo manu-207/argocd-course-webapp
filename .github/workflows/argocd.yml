@@ -79,4 +79,4 @@ jobs:
 
       - name: Sync Argo CD application
         run: |
-          argocd app sync my-app
+          argocd app sync webapp
