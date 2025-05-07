@@ -65,7 +65,7 @@ jobs:
       - name: Update Helm values.yaml with latest tag
         run: |
           sed -i 's|repository:.*|repository: '"$ECR_REGISTRY/$ECR_REPOSITORY"'|' ./helm/webapp/values.yaml
-          sed -i 's|tag:.*|tag: latest|' ./helm/webapp/values.yaml
+          sed -i 's|tag:.*|tag: latest-1|' ./helm/webapp/values.yaml
 
       - name: Install Argo CD CLI
         run: |
