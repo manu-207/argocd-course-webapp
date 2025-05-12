@@ -40,11 +40,11 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest-2 -f ./WebApplication1/Dockerfile .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest-4 -f ./WebApplication1/Dockerfile .
 
       - name: Push Docker image to Amazon ECR
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest-2
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest-4
 
   deploy:
     name: Deploy to EKS using Argo CD
@@ -65,13 +65,13 @@ jobs:
       - name: Update Helm values.yaml with latest tag
         run: |
           sed -i 's|repository:.*|repository: '"$ECR_REGISTRY/$ECR_REPOSITORY"'|' ./helm/webapp/values.yaml
-          sed -i 's|tag:.*|tag: latest-2|' ./helm/webapp/values.yaml
+          sed -i 's|tag:.*|tag: latest-4|' ./helm/webapp/values.yaml
       - name: Commit and push updated values.yaml
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
           git add ./helm/webapp/values.yaml
-          git commit -m "Update Docker tag to latest-2"
+          git commit -m "Update Docker tag to latest-4"
           git push origin main
 
       - name: Install Argo CD CLI
